@@ -1,4 +1,6 @@
 // Implements http://rosettacode.org/wiki/Reverse_words_in_a_string
+#![allow(unused_features)]
+#![feature(str_words)]
 
 fn rev_words(line: &str) -> String {
     line.words().rev().collect::<Vec<&str>>().connect(" ")
@@ -35,9 +37,9 @@ fn test_rev_words() {
                  ("cat     dog", "dog cat"),
                  ("cat dog frog", "frog dog cat")];
 
-    for &(input, expected) in tests.iter() {
+    for &(input, expected) in &tests {
         let output = rev_words(input);
-        assert!(expected.equiv(&output));
+        assert_eq!(expected, output);
     }
 }
 
@@ -58,8 +60,8 @@ fn test_rev_words_on_lines() {
                  ("a b\nb a", "b a\na b"),
                  ("a b\nc d\ne f", "b a\nd c\nf e")];
 
-    for &(input, expected) in tests.iter() {
+    for &(input, expected) in &tests {
         let output = rev_words_on_lines(input);
-        assert!(expected.equiv(&output));
+        assert_eq!(expected, output);
     }
 }

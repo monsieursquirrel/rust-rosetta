@@ -1,37 +1,39 @@
 // Implements http://rosettacode.org/wiki/Sieve_of_Eratosthenes
+#![feature(core)]
 
-use std::iter::{range_inclusive, range_step};
+use std::iter::{repeat, range_step};
+use std::num::Float;
 
-fn int_sqrt(n: uint) -> uint {
-    (n as f64).sqrt() as uint
+fn int_sqrt(n: usize) -> usize {
+    (n as f64).sqrt() as usize
 }
 
 // Return the prime numbers up to limit
-fn simple_sieve(limit: uint) -> Vec<uint> {
+fn simple_sieve(limit: usize) -> Vec<usize> {
     if limit < 2 {
         return vec!();
     }
 
-    let mut primes = Vec::from_elem(limit + 1, true);
+    let mut primes: Vec<bool> = repeat(true).take(limit+1).collect();
 
-    for prime in range_inclusive(2, int_sqrt(limit) + 1) {
-        if *primes.get(prime) {
+    for prime in (2..int_sqrt(limit) + 1 + 1) {
+        if primes[prime] {
             for multiple in range_step(prime * prime, limit + 1, prime) {
-                *primes.get_mut(multiple) = false
+                primes[multiple] = false
             }
         }
     }
 
-    range_inclusive(2, limit).filter(|&n| *primes.get(n)).collect()
+    (2..limit + 1).filter(|&n| primes[n]).collect()
 }
 
 #[cfg(not(test))]
 fn main() {
-    println!("{}", simple_sieve(100))
+    println!("{:?}", simple_sieve(100))
 }
 
 #[test]
 fn test_basic() {
     let primes = simple_sieve(30);
-    assert!(primes.as_slice() == [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]);
+    assert!(primes == [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]);
 }

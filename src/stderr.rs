@@ -1,10 +1,9 @@
 // Implements http://rosettacode.org/wiki/Hello_world/Standard_error
-// not_tested
-#![allow(unused_must_use)]
+#![feature(old_io)]
 
-use std::io;
+use std::old_io;
 
 fn main() {
-    let mut stderr = io::stderr();
-    stderr.write(bytes!("Goodbye, World!\n"));
+    let mut stderr = old_io::stderr();
+    let _ = stderr.write_all(b"Goodbye, World!\n");
 }

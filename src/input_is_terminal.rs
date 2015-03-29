@@ -1,6 +1,5 @@
 // Implements http://rosettacode.org/wiki/Check_input_device_is_a_terminal
-// not_tested
-
+#![feature(libc)]
 extern crate libc;
 
 fn main() {

@@ -1,12 +1,8 @@
 // Implements http://rosettacode.org/wiki/Loops/For
 
-// not_tested
-
-use std::iter;
-
 fn main() {
-    for i in iter::range_inclusive(1, 5) {
-        for _ in iter::range_inclusive(1, i) {
+    for i in (1..6) {
+        for _ in (1..i+1) {
             print!("*")
         }
         println!("")

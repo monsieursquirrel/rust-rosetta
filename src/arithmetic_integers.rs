@@ -1,15 +1,17 @@
 // Implements http://rosettacode.org/wiki/Arithmetic/Integer
-// not_tested
+#![feature(old_io)]
+#![feature(str_words)]
+use std::old_io::stdin;
 
 fn main() {
-    let input = std::io::stdin().read_line().unwrap();
-    let words = input.as_slice().words().take(2)
-                            .map(from_str)
-                            .collect::<Vec<Option<int>>>();
+    let input = stdin().read_line().unwrap();
+    let words = input.words().take(2)
+                                        .map(|s| s.parse().ok())
+                                        .collect::<Vec<Option<i32>>>();
 
-    let (a, b) = match words.as_slice() {
+    let (a, b) = match &words[..] {
             [Some(x), Some(y)] => (x, y),
-            _                  => fail!("Please enter 2 integers")
+            _ => panic!("Please enter 2 integers")
     };
 
     println!("a + b = {}", a + b);

@@ -1,10 +1,13 @@
 // Implements http://rosettacode.org/wiki/Parallel_calculations
 // See http://static.rust-lang.org/doc/master/guide-tasks.html for information
 // about tasks, channels, future, etc.
+#![allow(unused_features)]
+#![feature(std_misc)]
+#![feature(test)]
+
 
 #[cfg(test)]
 extern crate test;
-extern crate sync;
 
 use std::sync::Future;
 use prime_decomposition::factor;
@@ -12,46 +15,50 @@ use prime_decomposition::factor;
 mod prime_decomposition;
 
 // Returns the minimal prime factor of a number
-fn min_factor(x: uint) -> uint {
+fn min_factor(x: usize) -> usize {
     // factor returns a sorted vector, so we just take the first element
-    *factor(x).get(0)
+    factor(x)[0]
 }
 
 // Returns the largest minimal factor of the numbers in a slice
 // The function is implemented using a channel
 #[cfg(test)]
-fn largest_min_factor_chan(numbers: &[uint]) -> uint {
+fn largest_min_factor_chan(numbers: &[usize]) -> usize {
+    use std::thread::spawn;
+    use std::sync::mpsc::channel;
+
     let (sender, receiver) = channel();
 
     // Send all the minimal factors
-    for &x in numbers.iter() {
+    for &x in numbers {
         let child_sender = sender.clone();
-        spawn(proc() { child_sender.send(min_factor(x)) });
+        spawn(move || { child_sender.send(min_factor(x)).unwrap() });
     }
 
     // Receive them and keep the largest one
-    numbers.iter().fold(0u, |max, _| {
-        std::cmp::max(receiver.recv(), max)
+    numbers.iter().fold(0, |max, _| {
+        std::cmp::max(receiver.recv().unwrap(), max)
     })
 }
 
 // Returns the largest minimal factor of the numbers in a slice
 // The function is implemented using the Future struct
-fn largest_min_factor_fut(numbers: &[uint]) -> uint {
+fn largest_min_factor_fut(numbers: &[usize]) -> usize {
     // We will save the future values of the minimal factor in the results vec
-    let mut results = Vec::from_fn(numbers.len(), |i| {
-        let number = numbers[i];
-        Future::spawn(proc() { min_factor(number) })
-    });
+    let mut results: Vec<Future<usize>> = (0..numbers.len()).map(
+		|i| {
+			let number = numbers[i];
+			Future::spawn(move || { min_factor(number) })
+		}).collect();
 
     // Get the largest minimal factor of all results
-    results.mut_iter().map(|r| r.get()).max().unwrap()
+    results.iter_mut().map(|r| r.get()).max().unwrap()
 }
 
 #[cfg(not(test))]
 fn main() {
     // Numbers to be factorized
-    let numbers = &[1122725u,
+    let numbers = &[1122725,
                    1125827,
                    1122725,
                    1152800,
@@ -71,7 +78,7 @@ fn test_basic() {
 
 #[test]
 fn test_equivalence() {
-    let numbers = &[1122725u,
+    let numbers = &[1122725,
                    1125827,
                    1122725,
                    1152800,

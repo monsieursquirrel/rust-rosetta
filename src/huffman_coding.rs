@@ -1,21 +1,25 @@
+
 // Implement data structures for a Huffman encoding tree:
 //   http://rosettacode.org/wiki/Huffman_coding
+#![feature(std_misc)]
 
-extern crate core;
 use std::collections::HashMap;
-use std::collections::priority_queue::PriorityQueue;
+use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::collections::BinaryHeap;
+use std::cmp::Ordering;
+use std::cmp::Ordering::{Less, Equal, Greater};
 
 // Each HNode has a weight, representing the sum of the frequencies for all its
 // children. It is either a leaf (containing a character), or a HTree
 // (containing two children)
 struct HNode {
-    weight: int,
-    item: HTreeOrHLeaf,
+    weight: usize,
+    item: HItem,
 }
 
-enum HTreeOrHLeaf {
-    HTree(HTreeData),
-    HLeaf(char),
+enum HItem {
+    Tree(HTreeData),
+    Leaf(char),
 }
 
 struct HTreeData {
@@ -36,16 +40,16 @@ impl Ord for HNode {
     }
 }
 
+impl PartialOrd for HNode {
+    fn partial_cmp(&self, other: &HNode) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl Eq for HNode {}
 impl PartialEq for HNode {
     fn eq(&self, other: &HNode) -> bool {
         self.weight == other.weight
-    }
-}
-
-impl PartialOrd for HNode {
-    fn lt(&self, other: &HNode) -> bool {
-        self.weight > other.weight
     }
 }
 
@@ -56,16 +60,19 @@ fn huffman_tree(input: &str) -> HNode {
     //    of character to frequency.
     let mut freq = HashMap::new();
     for ch in input.chars() {
-        freq.insert_or_update_with(ch, 1, |_k, v: &mut int| {*v += 1;});
+        match freq.entry(ch) {
+            Vacant(entry) => { entry.insert(1); },
+            Occupied(mut entry) => { *entry.get_mut() += 1; },
+        };
     }
 
     // 2. For each (character, frequency) pair in the HashMap, add a Leaf to a
     //    PriorityQueue
-    let mut queue = PriorityQueue::<HNode>::new();
+    let mut queue = BinaryHeap::<HNode>::new();
     for (ch, freq) in freq.iter() {
         let new_node = HNode{
             weight: *freq,
-            item: HLeaf(*ch),
+            item: HItem::Leaf(*ch),
         };
         queue.push(new_node);
     }
@@ -79,9 +86,9 @@ fn huffman_tree(input: &str) -> HNode {
         let item2 = queue.pop().unwrap();
         let new_node = HNode {
             weight: item1.weight + item2.weight,
-            item: HTree(HTreeData{
-                left: box item1,
-                right: box item2,
+            item: HItem::Tree(HTreeData{
+                left: Box::new(item1),
+                right: Box::new(item2),
             }),
         };
         queue.push(new_node);
@@ -93,15 +100,15 @@ fn huffman_tree(input: &str) -> HNode {
 // its encoding string.
 fn build_encoding_table(tree: &HNode,
                       table: &mut HashMap<char,String>,
-                      startStr: &str) {
+                      start_str: &str) {
     match tree.item {
-        HTree(ref data) => {
-            build_encoding_table(data.left, table,
-                               String::from_str(startStr).append("0").as_slice());
-            build_encoding_table(data.right, table,
-                               String::from_str(startStr).append("1").as_slice());
+        HItem::Tree(ref data) => {
+            build_encoding_table(&data.left, table,
+                               &format!("{}0", start_str)[..]);
+            build_encoding_table(&data.right, table,
+                               &format!("{}1", start_str)[..]);
         },
-        HLeaf(ch)   => {table.insert(ch, String::from_str(startStr));}
+        HItem::Leaf(ch)   => {table.insert(ch, start_str.to_string());}
     };
 }
 
@@ -119,31 +126,31 @@ fn test_tree_construction() {
     let tree = huffman_tree(to_encode);
     assert!(tree.weight == 7);
     let children = match tree.item {
-        HTree(data) => data,
-        HLeaf(_)    => fail!("Tree Missing Children!"),
+        HItem::Tree(data) => data,
+        HItem::Leaf(_)    => panic!("Tree Missing Children!"),
     };
     let left  = &children.left;
     let right = &children.right;
     assert!(right.weight == 4);
     assert!(left.weight == 3);
     let right_char = match right.item {
-        HTree(_)  => fail!("Node is not Leaf Node!"),
-        HLeaf(ch) => ch,
+        HItem::Tree(_)  => panic!("Node is not Leaf Node!"),
+        HItem::Leaf(ch) => ch,
     };
     assert!(right_char == '4');
     let children = match left.item {
-        HTree(ref data) => data,
-        HLeaf(_)    => fail!("Tree Missing Children!"),
+        HItem::Tree(ref data) => data,
+        HItem::Leaf(_)    => panic!("Tree Missing Children!"),
     };
     let left  = &children.left;
     let right = &children.right;
     let left_char = match left.item {
-        HTree(_)  => fail!("Node is not Leaf Node!"),
-        HLeaf(ch) => ch,
+        HItem::Tree(_)  => panic!("Node is not Leaf Node!"),
+        HItem::Leaf(ch) => ch,
     };
     let right_char = match right.item {
-        HTree(_)  => fail!("Node is not Leaf Node!"),
-        HLeaf(ch) => ch,
+        HItem::Tree(_)  => panic!("Node is not Leaf Node!"),
+        HItem::Leaf(ch) => ch,
     };
     match (left.weight, right.weight) {
         (1, 2) => {
@@ -155,7 +162,7 @@ fn test_tree_construction() {
             assert!(right_char == '1');
         },
         (_, _) => {
-            fail!("Incorrect Leaf Nodes");
+            panic!("Incorrect Leaf Nodes");
         }
     };
 }
@@ -171,9 +178,9 @@ fn test_table_construction() {
     let tree = huffman_tree(to_encode);
     let mut table = HashMap::<char,String>::new();
     build_encoding_table(&tree, &mut table, "");
-    let one  = table.get(&'1').as_slice();
-    let two  = table.get(&'2').as_slice();
-    let four = table.get(&'4').as_slice();
+    let one  = &*table['1'];
+    let two  = &*table['2'];
+    let four = &*table['4'];
     assert!(four == "1");
     assert!((one == "01" && two == "00") ||
             (one == "00" && two == "01"));

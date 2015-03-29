@@ -1,119 +1,156 @@
-// Implements http://rosettacode.org/wiki/Hamming_numbers
-// port of one of the scala solutions
+// http://rosettacode.org/wiki/Hamming_numbers
+#![allow(unused_features)]
+#![feature(collections)]
+
+
 extern crate num;
-use num::bigint::BigUint;
+use num::bigint::{BigUint, ToBigUint};
+use num::traits::One;
+use num::one;
 use std::cmp::min;
-use std::sync::spsc_queue::Queue;
+use std::collections::VecDeque;
+use std::ops::Mul;
 
-// helper function to avoid repeating
-// FromPrimitive::from_int(i).unwrap()
-// for every BigUint creation
-fn int_to_biguint(i: int) -> BigUint {
-    FromPrimitive::from_int(i).unwrap()
-}
-
+// needed because hamming_numbers_alt uses this as a library
+#[allow(dead_code)]
 #[cfg(not(test))]
 fn main() {
-    let mut hamming = Hamming::new(1691);
+    // capacity of the queue currently needs to be a power of 2 because of a bug with VecDeque
+    let hamming : Hamming<BigUint> = Hamming::new(128);
 
-    println!("first 20 Hamming numbers")
-    for _ in range(0,20) {
-        print!("{} ", hamming.next().unwrap());
+    for (idx, h) in hamming.enumerate().take(1_000_000) {
+        match idx + 1 {
+            1...20 => print!("{} ", h.to_biguint().unwrap()),
+            i @ 1691 | i @ 1000000 => println!("\n{}th number: {}", i, h.to_biguint().unwrap()),
+            _ =>  continue
+        }
     }
-
-    println!("\n\n1691st Hamming number");
-    // we've already iterated over the first 20 numbers
-    // so to get at number 1691 we have to subtract 20
-    println!("{}",hamming.nth(1691-20).unwrap())
 }
 
-// Hamming numbers are multiples
-// of 2, 3 or 5. We keep them on three
-// queues and extract the lowest (leftmost) value
-// from the three queues at each iteration
-struct Hamming {
-    q2: Queue<BigUint>,
-    q3: Queue<BigUint>,
-    q5: Queue<BigUint>
+//representing a Hamming number as a BigUint
+impl HammingNumber for BigUint {
+    // returns the multipliers 2, 3 and 5 in the representation for the HammingNumber
+    fn multipliers() -> (BigUint, BigUint, BigUint) {
+        (2u8.to_biguint().unwrap(),
+        3u8.to_biguint().unwrap(),
+        5u8.to_biguint().unwrap())
+    }
 }
 
-impl Hamming {
-    // constructor method
-    // n initializes the capacity of the queues
-    fn new(n: uint) -> Hamming {
-        let h = Hamming {
-            q2: Queue::new(n),
-            q3: Queue::new(n),
-            q5: Queue::new(n)
+/// representation of a Hamming number
+/// allows to abstract on how the hamming number is stored
+/// i.e. as BigUint directly or just as the powers of 2, 3 and 5 used to build it
+pub trait HammingNumber : Eq + Ord + ToBigUint + Mul<Output=Self> + One + Clone {
+    fn multipliers() -> (Self, Self, Self);
+}
+
+/// Hamming numbers are multiples of 2, 3 or 5.
+///
+/// We keep them on three queues and extract the lowest (leftmost) value from
+/// the three queues at each iteration.
+pub struct Hamming<T> {
+    // Using a VecDeque as a queue, push to the back, pop from the front
+    q2: VecDeque<T>,
+    q3: VecDeque<T>,
+    q5: VecDeque<T>
+}
+
+impl<T: HammingNumber> Hamming<T> {
+    /// Static constructor method
+    /// `n` initializes the capacity of the queues
+    pub fn new(n: usize) -> Hamming<T> {
+        let mut h = Hamming {
+            q2: VecDeque::with_capacity(n),
+            q3: VecDeque::with_capacity(n),
+            q5: VecDeque::with_capacity(n)
         };
 
-        h.q2.push(int_to_biguint(1));
-        h.q3.push(int_to_biguint(1));
-        h.q5.push(int_to_biguint(1));
+        h.q2.push_back(one());
+        h.q3.push_back(one());
+        h.q5.push_back(one());
 
         h
     }
 
-    // adds the next multiple (x2, x3, x5)
-    // to the queues
-    fn enqueue(&self, n: BigUint) {
-        self.q2.push(n * int_to_biguint(2));
-        self.q3.push(n * int_to_biguint(3));
-        self.q5.push(n * int_to_biguint(5));
+    /// Pushes the next multiple of `n` (x2, x3, x5) to the queues
+    pub fn enqueue(&mut self, n: T) {
+        let (two, three, five) : (T, T, T) = HammingNumber::multipliers();
+        self.q2.push_back(two * n.clone());
+        self.q3.push_back(three * n.clone());
+        self.q5.push_back(five * n.clone());
     }
 }
 
-// implements an Iterator, so we
-// can extract Hamming numbers more easily
-impl Iterator<BigUint> for Hamming {
-    // the core of the work is done in the next method.
-    // We check which of the 3 queues has the lowest
-    // candidate and extract it as the next Hamming number
-    fn next(&mut self) -> Option<BigUint> {
-        let (head2, head3, head5) =
-            (   self.q2.peek().unwrap(),
-                self.q3.peek().unwrap(),
-                self.q5.peek().unwrap());
+// Implements the `Iterator` trait, so we can generate Hamming numbers lazily
+impl<T: HammingNumber> Iterator for Hamming<T> {
+    type Item = T;
+    // The core of the work is done in the `next` method.
+    // We check which of the 3 queues has the lowest candidate and extract it
+    // as the next Hamming number.
+    fn next(&mut self) -> Option<T> {
+        // Return `pop_targets` so the borrow from `front()` will be finished
+        let (two, three, five) = match (self.q2.front(),
+                                        self.q3.front(),
+                                        self.q5.front()) {
+            (Some(head2), Some(head3), Some(head5)) => {
+                let n = min(head2, min(head3, head5));
+                (head2 == n, head3 == n, head5 == n)
+            },
+            _ => unreachable!()
+        };
 
-        let n = min(head2.clone(), min(head3.clone(), head5.clone()));
+        let h2 = if two { self.q2.pop_front() } else { None };
+        let h3 = if three { self.q3.pop_front() } else { None };
+        let h5 = if five { self.q5.pop_front() } else { None };
 
-        if *head2 == n {self.q2.pop();}
-        if *head3 == n {self.q3.pop();}
-        if *head5 == n {self.q5.pop();}
-
-        self.enqueue(n.clone());
-        Some(n)
+        match h2.or(h3).or(h5) {
+            Some(n) => {
+                self.enqueue(n.clone());
+                Some(n)
+            }
+            None => unreachable!()
+        }
     }
 }
 
 #[test]
 fn create() {
-    let h = Hamming::new(5);
-    h.q2.push(int_to_biguint(1));
-    h.q2.push(int_to_biguint(2));
-    h.q2.push(int_to_biguint(4));
+    let mut h = Hamming::<BigUint>::new(5);
+    h.q2.push_back(one::<BigUint>());
+    h.q2.push_back(one::<BigUint>() * 3.to_biguint().unwrap());
 
-    let _ = h.q2.peek();
-    assert!(h.q2.pop().unwrap() == int_to_biguint(1));
+    assert_eq!(h.q2.pop_front().unwrap(), one::<BigUint>());
 }
 
 #[test]
 fn try_enqueue() {
-    let h = Hamming::new(5);
-    h.enqueue(int_to_biguint(1));
-    h.enqueue(int_to_biguint(2));
-    h.enqueue(int_to_biguint(3));
+    let mut h = Hamming::<BigUint>::new(5);
+    let (two, three, five): (BigUint, BigUint, BigUint) = HammingNumber::multipliers();
+    h.enqueue(one::<BigUint>());
+    h.enqueue((one::<BigUint>() * two.clone()));
 
-    assert!(h.q2.pop().unwrap() == int_to_biguint(1));
-    assert!(h.q3.pop().unwrap() == int_to_biguint(1));
-    assert!(h.q5.pop().unwrap() == int_to_biguint(1));
-    assert!(h.q2.pop().unwrap() == int_to_biguint(2));
-    assert!(h.q3.pop().unwrap() == int_to_biguint(3));
-    assert!(h.q5.pop().unwrap() == int_to_biguint(5));
+    assert!(h.q2.pop_front().unwrap() == one::<BigUint>());
+    assert!(h.q3.pop_front().unwrap() == one::<BigUint>());
+    assert!(h.q5.pop_front().unwrap() == one::<BigUint>());
+    assert!(h.q2.pop_front().unwrap() == one::<BigUint>() * two);
+    assert!(h.q3.pop_front().unwrap() == one::<BigUint>() * three);
+    assert!(h.q5.pop_front().unwrap() == one::<BigUint>() * five);
  }
 
 #[test]
 fn hamming_iter() {
-    let mut hamming = Hamming::new(20);
-    assert!(hamming.nth(19).unwrap() == int_to_biguint(36));
+    let mut hamming = Hamming::<BigUint>::new(20);
+    assert!(hamming.nth(19).unwrap().to_biguint() == 36.to_biguint());
+}
+
+#[ignore] // Please run this if you modify the file.  It is too slow to run normally.
+#[test]
+
+fn hamming_iter_1million() {
+    let mut hamming = Hamming::<BigUint>::new(128);
+    // one-million-th hamming number has index 999_999 because indexes are zero-based
+    assert_eq!(hamming.nth(999_999).unwrap().to_biguint(),
+        "519312780448388736089589843750000000000000000000000000000000000000000000000000000000"
+        .parse::<BigUint>().ok()
+        );
 }

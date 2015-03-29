@@ -1,22 +1,21 @@
 // Implements http://rosettacode.org/wiki/Guess_the_number
-// not_tested
-extern crate rand;
 
-use std::rand::{task_rng, Rng};
-use std::io::stdio::stdin;
-use std::io::BufferedReader;
+#![feature(old_io)]
+extern crate rand;
+use rand::{thread_rng, Rng};
+use std::old_io::stdio::stdin;
 
 fn main() {
-    let mystery_number = task_rng().gen_range(0, 10) + 1;
+    let mystery_number = thread_rng().gen_range(0u8, 10) + 1;
     println!("Guess my number between 1 and 10");
 
-    let mut input = BufferedReader::new(stdin());
+    let mut input = stdin();
     loop {
         let line = input.read_line().unwrap();
-        match from_str::<int>(line.as_slice().trim()) {
-            Some(number) if (number == mystery_number) => break,
-            Some(_) => println!("Wrong! Try again!"),
-            None    => println!("Please enter an integer")
+        match line.trim().parse::<u8>() {
+            Ok(guess) if guess == mystery_number => break,
+            Ok(_) => println!("Wrong! Try again!"),
+            Err(_) => println!("Please enter an integer")
         }
     }
 

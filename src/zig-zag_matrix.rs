@@ -2,22 +2,31 @@
 // with the sorting indexes algorithm
 // explained in the discussion page
 // http://rosettacode.org/wiki/Talk:Zig-zag_matrix
+use std::iter::repeat;
+use std::cmp::Ordering;
+use std::cmp::Ordering::{Less, Equal, Greater};
 
-#[deriving(Show, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 struct SortIndex {
-    x:  uint,
-    y:  uint
+    x:  usize,
+    y:  usize
 }
 
 impl SortIndex {
-    fn new(x:uint, y:uint) -> SortIndex {
+    fn new(x: usize, y: usize) -> SortIndex {
         SortIndex{x:x, y:y}
     }
 }
 
 impl PartialOrd for SortIndex {
-    fn lt(&self, other: &SortIndex) -> bool {
-        if self.x + self.y == other.x + other.y {
+    fn partial_cmp(&self, other: &SortIndex) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SortIndex {
+    fn cmp(&self, other: &SortIndex) -> Ordering {
+        let lower = if self.x + self.y == other.x + other.y {
             if (self.x + self.y) % 2 == 0 {
                 self.x < other.x
             } else {
@@ -25,32 +34,33 @@ impl PartialOrd for SortIndex {
             }
         } else {
             (self.x + self.y) < (other.x + other.y)
+        };
+
+        if lower {
+            Less
+        } else if self == other {
+            Equal
+        } else {
+            Greater
         }
     }
 }
 
-impl Ord for SortIndex {
-    fn cmp(&self, other: &SortIndex) -> Ordering {
-        if self < other { Less }
-        else if self > other { Greater }
-        else {Equal}
-    }
-}
-
-fn zigzag(n:uint) -> Vec<Vec<uint>> {
-    let mut l:Vec<SortIndex> = range(0u, n*n).map(|i| SortIndex::new(i%n,i/n)).collect();
+fn zigzag(n: usize) -> Vec<Vec<usize>> {
+    let mut l: Vec<SortIndex> = (0..n*n).map(|i| SortIndex::new(i%n,i/n)).collect();
     l.sort();
 
-    let mut result : Vec<Vec<uint>> = Vec::from_elem(n, Vec::from_elem(n,0u));
+	let init_vec = vec![0; n];
+    let mut result : Vec<Vec<usize>> = repeat(init_vec).take(n).collect();
     for (i,&SortIndex{x,y}) in l.iter().enumerate() {
-        *result.get_mut(y).get_mut(x) = i
+        result[y][x] = i
     }
     result
 }
 
 #[cfg(not(test))]
 fn main() {
-    println!("{}", zigzag(5));
+    println!("{:?}", zigzag(5));
 }
 
 #[test]

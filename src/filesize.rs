@@ -1,5 +1,8 @@
 // Implements http://rosettacode.org/wiki/File_size
-// not_tested
+#![feature(old_path)]
+#![feature(old_io)]
+
+use std::old_io::fs::PathExtensions;
 
 fn main() {
     let path_wd = Path::new("input.txt");

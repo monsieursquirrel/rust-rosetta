@@ -1,31 +1,35 @@
 // Implements http://rosettacode.org/wiki/Entropy
-
-use std::str::StrSlice;
-use std::collections::hashmap::HashMap;
+#![feature(std_misc)]
+use std::num::Float;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry::{Occupied, Vacant};
 
 pub fn shannon_entropy(s: &str) -> f64 {
-    let mut map = HashMap::<char, uint>::new();
+    let mut map = HashMap::new();
 
     // Count occurrences of each char
     for c in s.chars() {
-        map.insert_or_update_with(c, 1, |_,v| *v += 1);
+        match map.entry(c) {
+            Vacant(entry) => { entry.insert(1); },
+            Occupied(mut entry) => { *entry.get_mut() += 1; },
+        };
     }
 
     // Calculate the entropy
     let len = s.len() as f64;
-    map.iter().fold(0f64, |acc, (_, nb)| {
-        let p = (*nb as f64) / len;
+    map.iter().fold(0f64, |acc, (_, &nb)| {
+        let p = nb as f64 / len;
         acc - p * p.log2()
     })
 }
+
 // Needed so fibonacci_word compiles cleanly, because fibonacci_word
 // uses this code as a library
 #[allow(dead_code)]
 #[cfg(not(test))]
 fn main() {
-    println!("{:f}", shannon_entropy("1223334444"));
+    println!("{}", shannon_entropy("1223334444"));
 }
-
 
 #[test]
 fn test_entropy() {
@@ -39,7 +43,7 @@ fn test_entropy() {
         ("Rosetta Code", 3.084962500407)];
     // Good enough, actual float epsilon is much smaller
     let epsilon: f64 = 0.0000001;
-    for (input, expected) in tests.move_iter() {
+    for (input, expected) in tests {
         let output = shannon_entropy(input);
         assert!((output - expected).abs() < epsilon);
     }

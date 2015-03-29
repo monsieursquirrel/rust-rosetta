@@ -1,28 +1,32 @@
 // Implements http://rosettacode.org/wiki/Fibonacci_word
+#![allow(unused_features)]
+#![allow(unused_attributes)]
+#![feature(collections)]
+#![feature(std_misc)]
+#![feature(core)]
 
 use entropy::shannon_entropy;
-use std::iter::range_inclusive;
 mod entropy;
 
 // Returns "amount" fibonacci words as a vector of tuples
 // The first value of the tuple is the length of the word
 // and the second one its entropy
-fn fib_words(amount: uint) -> Vec<(uint, f64)> {
+fn fib_words(amount: usize) -> Vec<(usize, f64)> {
     let mut data = Vec::with_capacity(amount);
     let mut previous = String::from_str("1");
     let mut next = String::from_str("0");
 
     // The first two words (we need to add them manually because
     // they are the base of the sequence)
-    data.push((previous.len(), shannon_entropy(previous.as_slice())));
-    data.push((next.len(), shannon_entropy(next.as_slice())));
+    data.push((previous.len(), shannon_entropy(&previous[..])));
+    data.push((next.len(), shannon_entropy(&next[..])));
 
     // The rest of the words
-    for _ in range_inclusive(3, amount) {
+    for _ in (3..amount + 1) {
         let temp = next.clone();
-        next.push_str(previous.as_slice());
+        next.push_str(&previous[..]);
         previous = temp;
-        data.push((next.len(), shannon_entropy(next.as_slice())));
+        data.push((next.len(), shannon_entropy(&next[..])));
     }
 
     data
@@ -35,15 +39,17 @@ fn main() {
     let mut i = 1;
 
     println!("{:>2}:{:>10} {}", "N", "length", "entropy");
-    for &(length, entropy) in words.iter() {
-        println!("{:>2i}:{:>10u} {:.15f}", i, length, entropy);
+    for &(length, entropy) in &words {
+        println!("{:>2}:{:>10} {:.15}", i, length, entropy);
         i += 1;
     }
 }
 #[test]
 fn test_fibonacii_words() {
+    use std::num::Float;
+
     let expected = vec![
-        (1u, 0.000000000000000),
+        (1, 0.000000000000000f64),
         (1, 0.000000000000000),
         (2, 1.000000000000000),
         (3, 0.918295834054490),
@@ -62,11 +68,11 @@ fn test_fibonacii_words() {
         (1597, 0.959418849957810),
         (2584, 0.959418681724032)];
 
-    let epsilon = 0.0000000001;
+    let epsilon = 0.0000000001f64;
     let output = fib_words(18);
 
     for ((output_length, output_entropy), (expected_length, expected_entropy))
-         in output.move_iter().zip(expected.move_iter()) {
+         in output.into_iter().zip(expected.into_iter()) {
              assert!(output_length == expected_length);
              assert!((output_entropy - expected_entropy).abs() < epsilon);
     }

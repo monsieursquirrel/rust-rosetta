@@ -1,4 +1,6 @@
 // Implements http://rosettacode.org/wiki/Four_bit_adder
+#![feature(core)]
+use std::ops::Deref;
 use std::{fmt, num};
 
 // primitive gates
@@ -24,9 +26,10 @@ fn full_adder(a: bool, b: bool, carry: bool) -> (bool, bool) {
   (s1, or(c0, c1))
 }
 
-struct Nibble([bool,.. 4]);
+#[derive(Copy)]
+struct Nibble([bool; 4]);
 impl Nibble {
-  fn new(arr: [u8,.. 4]) -> Nibble {
+  fn new(arr: [u8; 4]) -> Nibble {
     Nibble([arr[0] != 0, arr[1] != 0, arr[2] != 0, arr[3] != 0])
   }
 
@@ -35,23 +38,25 @@ impl Nibble {
   }
 
   fn to_u8(&self, carry: bool) -> u8 {
-    match num::from_str_radix::<u8>(format!("{}", self).as_slice(), 2) {
-      Some(n) if carry => n + 16,
-      Some(n) => n,
-      None => unreachable!()
+    match num::from_str_radix::<u8>(&(format!("{}", self))[..], 2) {
+      Ok(n) if carry => n + 16,
+      Ok(n) => n,
+      Err(_) => unreachable!()
     }
   }
 }
 
-impl fmt::Show for Nibble {
-  fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
+impl fmt::Display for Nibble {
+  fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
     write!(f, "{}", self.iter().map(|&b| if b { '1' } else { '0' }).collect::<String>())
   }
 }
 
 // We implement Deref so we can index the Nibble easily
-impl<'a> Deref<[bool,.. 4]> for Nibble {
-  fn deref<'a>(&'a self) -> &'a [bool,.. 4] {
+impl<'a> Deref for Nibble {
+  type Target= [bool; 4];
+
+  fn deref(&self) -> &[bool; 4] {
     let Nibble(ref inner) = *self;
     inner
   }
@@ -123,7 +128,7 @@ fn test_full_add() {
 
 #[test]
 fn test_four_bit_adder() {
-  for (a, b) in range(0, std::u8::MAX).map(|n| (n >> 4, n & 15)) {
+  for (a, b) in (0..std::u8::MAX).map(|n| (n >> 4, n & 15)) {
     let nib_a = Nibble::from_u8(a);
     let nib_b = Nibble::from_u8(b);
 

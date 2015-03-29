@@ -1,4 +1,5 @@
 // Implements http://rosettacode.org/wiki/Palindrome_detection
+#![allow(unused_features)]
 
 // Returns true if the string is a palindrome
 fn palindrome(string: &str) -> bool {
@@ -20,7 +21,7 @@ fn palindrome(string: &str) -> bool {
 #[cfg(not(test))]
 fn main() {
     let test_strings = ["nope", "eevee", "lalala", "rust", "lalalal"];
-    for &string in test_strings.iter() {
+    for &string in &test_strings {
         println!("{}: {}", string, palindrome(string));
     }
 }

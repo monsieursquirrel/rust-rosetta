@@ -1,17 +1,16 @@
 // Implements http://rosettacode.org/wiki/Set
-// not_tested
 
 use std::collections::HashSet;
 
 fn main() {
     // The first set contains integers from 0 to 7
-    let set1 = range(0, 7).collect::<HashSet<int>>();
+    let set1 = (0i32..7).collect::<HashSet<i32>>();
 
     // The second set contains integers from 5 to 10
-    let set2 = range(5, 10).collect();
+    let set2 = (5i32..10).collect();
 
     // A subset of set1
-    let subset1 = range(2, 5).collect::<HashSet<int>>();
+    let subset1 = (2i32..5).collect::<HashSet<i32>>();
 
     // Test if element is member of the set
     assert!(set1.contains(&1));

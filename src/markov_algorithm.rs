@@ -1,5 +1,6 @@
 // Solution for http://rosettacode.org/wiki/Execute_a_Markov_algorithm
 
+#![feature(collections)]
 // Individual markov rule
 struct MarkovRule {
     pattern: String,
@@ -21,15 +22,15 @@ struct MarkovAlgorithm {
 impl MarkovAlgorithm {
     // Parse an algorithm description to build a markov algorithm
     pub fn from_str(s: &str) -> Result<MarkovAlgorithm, String> {
-        let mut rules: Vec<MarkovRule> = vec!();
+        let mut rules: Vec<MarkovRule> = vec![];
         for line in s.lines()
             .map(|l| l.trim()) // Ignore whitespace before and after
-            .filter(|l| l.char_len() > 0 && l.char_at(0) != '#') { // Ignore comments
+            .filter(|l| l.chars().count() > 0 && l.char_at(0) != '#') { // Ignore comments
 
             // check for -> (must be preceded by whitespace)
             // invalid ruleset if absent
             // whitespace rules mean there's 2 possible variations: " ->" and "\t->"
-            let arrow_pos = line.find_str(" ->").or_else(|| line.find_str("\t->"));
+            let arrow_pos = line.find(" ->").or_else(|| line.find("\t->"));
             match arrow_pos {
                 None => {
                     // Ruleset is invalid
@@ -37,20 +38,21 @@ impl MarkovAlgorithm {
                 }
                 Some(arrow) => {
                     // extract pattern (trim trailing whitespace)
-                    let pattern = line.slice_to(arrow).trim_right();
+                    let pattern = line[..arrow].trim_right();
 
                     // get the string after the arrow
                     // this adds 3 to skip the arrow itself
-                    let line_end = line.slice_from(arrow + 3).trim_left();
+                    let line_end = line[arrow + 3..].trim_left();
 
                     // check for . (stop)
-                    let stop = (line_end.char_len() > 0) && (line_end.char_at(0) == '.');
+                    let stop = (line_end.chars().count() > 0) && (line_end.char_at(0) == '.');
 
                     // extract replacement
-                    let replacement = if stop {line_end.slice_from(1)} else {line_end};
+                    let replacement = if stop {&line_end[1..]} else {line_end};
 
                     // add to rules
-                    let new_rule = MarkovRule::new(pattern.to_str(), replacement.to_str(), stop);
+                    let new_rule = MarkovRule::new(pattern.to_string(),
+                                            replacement.to_string(), stop);
                     rules.push(new_rule);
                 }
             }
@@ -63,7 +65,7 @@ impl MarkovAlgorithm {
     pub fn apply(&self, input: &str) -> String {
 
         // get a writable version of the input to work with
-        let mut state = input.to_str();
+        let mut state = input.to_string();
 
         // Don't allow input to be used after this
         drop(input);
@@ -73,7 +75,7 @@ impl MarkovAlgorithm {
             // find the first rule that is applicable
             // (pattern string is in state)
             let possible_rule = self.rules.iter().find(|rule|{
-                state.as_slice().find_str(rule.pattern.as_slice()).is_some()
+                state.find(&rule.pattern[..]).is_some()
             });
 
             match possible_rule {
@@ -85,12 +87,12 @@ impl MarkovAlgorithm {
 
                     // unwrap is safe here as the code for finding a rule
                     // already established that the pattern is present
-                    let pos = state.as_slice().find_str(rule.pattern.as_slice()).unwrap();
+                    let pos = state.find(&rule.pattern[..]).unwrap();
                     let width = rule.pattern.len();
 
                     // string parts
-                    let left = state.as_slice().slice_to(pos).to_string();
-                    let right = state.as_slice().slice_from(pos + width).to_string();
+                    let left = state[..pos].to_string();
+                    let right = state[pos + width..].to_string();
 
                     // construct new string
                     state = format!("{}{}{}", left, rule.replacement, right);
@@ -114,7 +116,7 @@ struct RCSample<'a> {
 
 // Sample markow algorithms from rosetta code
 // The extra whitespaces are trimmed when MarkovAlgorithm::from_str is called
-fn get_samples<'a>() -> [RCSample<'a>, ..5] {
+fn get_samples<'a>() -> [RCSample<'a>; 5] {
     [
         RCSample {
             ruleset:
@@ -232,11 +234,11 @@ fn main() {
 
 #[test]
 fn test_samples() {
-    for sample in get_samples().iter() {
+    for sample in &get_samples() {
         match MarkovAlgorithm::from_str(sample.ruleset) {
             Ok(algorithm) => assert_eq!(sample.expected_result,
-                                        algorithm.apply(sample.input).as_slice()),
-            Err(message) => fail!("{}", message)
+                                        algorithm.apply(sample.input)),
+            Err(message) => panic!("{}", message)
         }
     }
 }

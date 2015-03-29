@@ -1,5 +1,4 @@
 // Implements http://rosettacode.org/wiki/Loops/For
-// not_tested
 
 use std::collections::HashMap;
 
@@ -20,7 +19,7 @@ fn main() {
 
     // Iterate through the elements of a hasmap
     let mut hashmap = HashMap::new();
-    hashmap.insert("a", 1);
+    hashmap.insert("a", 1u8);
     hashmap.insert("b", 2);
     hashmap.insert("c", 3);
     for (c, i) in hashmap.iter() {

@@ -1,12 +1,19 @@
 // Implements http://rosettacode.org/wiki/Hello_world/Web_server
-// not_tested
+#![allow(unused_features)]
+#![feature(old_io)]
+#![feature(std_misc)]
+#![feature(os)]
+#![feature(core)]
+#![feature(std_misc)]
 
-use std::io::net::tcp::{TcpListener, TcpStream};
-use std::io::{Acceptor, Listener};
+use std::old_io::net::tcp::{TcpAcceptor, TcpListener, TcpStream};
+use std::old_io::{Acceptor, Listener, IoResult};
+#[cfg(not(test))] use std::borrow::ToOwned;
+#[cfg(not(test))] use std::env;
 
-fn handle_client(mut stream: TcpStream) {
-    let response = bytes!(
-"HTTP/1.1 200 OK
+fn handle_client(mut stream: TcpStream) -> IoResult<()> {
+    let response =
+b"HTTP/1.1 200 OK
 Content-Type: text/html;
 charset=UTF-8
 
@@ -22,23 +29,54 @@ charset=UTF-8
     <body>
         <h1>Goodbye, world!</h1>
     </body>
-</html>");
-    match stream.write(response) {
-        Ok(_) => println!("Response sent!"),
-        Err(e) => println!("Failed sending response: {}!", e),
-    }
+</html>";
+
+    try!(stream.write_all(response));
+    stream.close_write()
 }
 
-fn main() {
-    let (ip, port) = ("127.0.0.1", 80);
-    let listener = TcpListener::bind(ip, port).unwrap();
-
+pub fn handle_server(ip: &str, port: u16) -> IoResult<TcpAcceptor> {
+    use std::thread::spawn;
+    let listener = try!(TcpListener::bind((ip, port)));
     let mut acceptor = listener.listen();
     println!("Listening for connections on port {}", port);
 
-    for stream in acceptor.incoming() {
-        spawn(proc() {
-            handle_client(stream.unwrap());
-        });
-    }
+    let handle = acceptor.clone();
+    spawn(move || -> () {
+        for stream in acceptor.incoming() {
+            match stream {
+                Ok(s) => {
+                    spawn(move || {
+                        match handle_client(s) {
+                            Ok(_) => println!("Response sent!"),
+                            Err(e) => println!("Failed sending response: {}!", e),
+                        }
+                    });
+                },
+                Err(e) => {
+                    println!("No longer accepting new requests: {}", e);
+                    break
+                }
+            }
+        }
+    });
+
+    handle
+}
+
+#[cfg(not(test))]
+fn main() {
+    let mut args = env::args();
+    let app_name = args.next().unwrap()
+        .to_owned();
+    let host = "127.0.0.1";
+    let port = if let Some(os_port) = args.next() {
+        let s_port = os_port.to_owned();
+        s_port.parse::<u16>().ok()
+            .expect(&*format!("Usage: {:?} <port>", app_name))
+    } else {
+        80
+    };
+
+    handle_server(host, port).unwrap();
 }

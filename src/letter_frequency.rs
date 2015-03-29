@@ -1,15 +1,26 @@
 // Implements http://rosettacode.org/wiki/Letter_frequency
+#![allow(unused_features)]
+#![feature(std_misc)]
+#![feature(old_io)]
+#![feature(old_path)]
+
 
 #[cfg(not(test))]
-use std::io::fs::File;
+use std::old_io::fs::File;
 #[cfg(not(test))]
-use std::io::BufferedReader;
+use std::old_io::BufferedReader;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry::{Occupied, Vacant};
 
-fn count_chars<T: Iterator<char>>(mut chars: T) -> HashMap<char, uint> {
-    let mut map: HashMap<char, uint> = HashMap::new();
+fn count_chars<T>(chars: T) -> HashMap<char, usize>
+    where T : Iterator<Item=char>
+{
+    let mut map: HashMap<char, usize> = HashMap::new();
     for letter in chars {
-        map.insert_or_update_with(letter, 1, |_, count| *count += 1);
+        match map.entry(letter) {
+            Vacant(entry) => { entry.insert(1); },
+            Occupied(mut entry) => { *entry.get_mut() += 1; }
+        };
     }
     map
 }
@@ -19,7 +30,7 @@ fn main() {
     let file = File::open(&Path::new("resources/unixdict.txt"));
     let mut reader = BufferedReader::new(file);
 
-    println!("{}", count_chars(reader.chars().map(|c| c.unwrap())));
+    println!("{:?}", count_chars(reader.chars().map(|c| c.unwrap())));
 }
 
 #[test]
@@ -33,7 +44,7 @@ fn test_basic() {
     let map = count_chars("aaaabbbbc".chars());
 
     assert!(map.len() == 3);
-    assert!(*map.get(&'a') == 4);
-    assert!(*map.get(&'b') == 4);
-    assert!(*map.get(&'c') == 1);
+    assert!(map['a'] == 4);
+    assert!(map['b'] == 4);
+    assert!(map['c'] == 1);
 }
